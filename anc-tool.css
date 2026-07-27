@@ -113,6 +113,50 @@
 
 .anc-tool .anc-no-response { color: #777; font-size: 14px; font-style: italic; }
 
+.anc-tool .anc-spotlight {
+  background: var(--gg-light-green);
+  border: 1px solid var(--gg-green);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 6px 0 14px;
+}
+.anc-tool .anc-spotlight-label {
+  font-family: var(--gg-font-headline);
+  font-size: 13px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--gg-green-dark);
+  margin-bottom: 4px;
+}
+.anc-tool .anc-answer-long { font-size: 14px; line-height: 1.5; margin: 4px 0; }
+
+.anc-tool details.anc-topic {
+  border-top: 1px solid var(--gg-gray);
+  padding: 8px 0;
+}
+.anc-tool details.anc-topic:last-of-type { border-bottom: 1px solid var(--gg-gray); }
+.anc-tool details.anc-topic summary {
+  font-family: var(--gg-font-headline);
+  font-size: 16px; font-weight: 700;
+  color: var(--gg-black);
+  cursor: pointer;
+  list-style: revert;
+}
+.anc-tool details.anc-topic summary::marker { color: var(--gg-green); }
+.anc-tool details.anc-topic[open] summary { margin-bottom: 8px; }
+.anc-tool .anc-topic-count { font-family: var(--gg-font-body); font-weight: 400; font-size: 13px; color: #777; }
+
+.anc-tool .anc-rank-list { margin: 0; padding-left: 20px; font-size: 14px; }
+.anc-tool .anc-rank-list li { margin-bottom: 2px; }
+
+.anc-tool .anc-tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.anc-tool .anc-tag {
+  display: inline-block;
+  background: var(--gg-light-gray-green);
+  border: 1px solid var(--gg-gray-green);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12.5px;
+}
+
 .anc-tool .anc-answer-row { margin: 8px 0; font-size: 14px; }
 .anc-tool .anc-answer-q { font-weight: 600; margin-bottom: 2px; color: var(--gg-black); }
 .anc-tool .anc-answer-a { color: #333; }

@@ -309,6 +309,54 @@
         selectionEl.innerHTML = html;
       }
 
+      // --- Map each (long, verbatim survey) question to a short display label + topic bucket. ---
+      // Hand-curated against this specific 2024 questionnaire's real question text; unmatched
+      // questions fall back to a truncated version of their own text under "Other" so nothing
+      // is silently dropped if the questionnaire changes next cycle.
+      var QUESTION_META = [
+        { match: /biggest issue/i, topic: "spotlight", label: "Biggest issue in the neighborhood" },
+        { match: /where in your advisory neighborhood commission.*density/i, topic: "Housing & Development", label: "Where density should increase" },
+        { match: /i consider affordable housing/i, topic: "Housing & Development", label: "What counts as \u201caffordable housing\u201d" },
+        { match: /i consider market-rate housing/i, topic: "Housing & Development", label: "What counts as \u201cmarket-rate housing\u201d" },
+        { match: /inclusionary zoning law/i, topic: "Housing & Development", label: "Response to pushback on an IZ project" },
+        { match: /planned unit developments/i, topic: "Housing & Development", label: "PUD community-benefit priorities (ranked)" },
+        { match: /check any of the below combinations.*social housing/i, topic: "Housing & Development", label: "What counts as \u201csocial housing\u201d" },
+        { match: /should apartments be legal/i, topic: "Housing & Development", label: "Apartments legal District-wide?" },
+        { match: /which statement do you agree with most/i, topic: "Housing & Development", label: "Where new housing should go" },
+        { match: /historic districts/i, topic: "Housing & Development", label: "Views on historic districts" },
+        { match: /rewrite of its comprehensive plan/i, topic: "Housing & Development", label: "Comp Plan rewrite top priority" },
+        { match: /my anc, not just my smd, has/i, topic: "Housing & Development", label: "Bars & restaurants in the ANC" },
+        { match: /not enough cars, enough cars, or too many cars/i, topic: "Transportation & Streets", label: "Enough cars in DC?" },
+        { match: /sustainable d\.c\. 2\.0/i, topic: "Transportation & Streets", label: "Reduce car trips as a policy goal?" },
+        { match: /incentives for people to drive less/i, topic: "Transportation & Streets", label: "Traffic-safety policy priorities (ranked)" },
+        { match: /the above question asks about systemic policies/i, topic: "Transportation & Streets", label: "Local street-safety initiatives (ranked)" },
+        { match: /on-street parking occurs in public space/i, topic: "Transportation & Streets", label: "Reasonable street-parking availability" },
+        { match: /carbon-free by 2050/i, topic: "Transportation & Streets", label: "A car trip they'd switch" },
+        { match: /anc commissioners represent about 2,000/i, topic: "Governance & Representation", label: "How they'd represent all constituents" },
+        { match: /why do you think you are the right person/i, topic: "Governance & Representation", label: "Why they're the right person" }
+      ];
+      var TOPIC_ORDER = ["Housing & Development", "Transportation & Streets", "Governance & Representation"];
+      function questionMeta(q) {
+        for (var i = 0; i < QUESTION_META.length; i++) {
+          if (QUESTION_META[i].match.test(q)) return QUESTION_META[i];
+        }
+        return { topic: "Other", label: q.length > 90 ? q.slice(0, 87) + "\u2026" : q };
+      }
+
+      function formatAnswerHTML(questionKey, val) {
+        if (val && typeof val === "object") {
+          var items = Object.keys(val).sort(function (a, b) { return val[a] - val[b]; });
+          return '<ol class="anc-rank-list">' + items.map(function (o) { return "<li>" + escapeHTML(o) + "</li>"; }).join("") + "</ol>";
+        }
+        var str = String(val);
+        if (/check (all|any)/i.test(questionKey)) {
+          var tags = str.split(";").map(function (s) { return s.trim(); }).filter(Boolean);
+          return '<div class="anc-tag-list">' + tags.map(function (t) { return '<span class="anc-tag">' + escapeHTML(t) + "</span>"; }).join("") + "</div>";
+        }
+        if (str.length > 120) return '<p class="anc-answer-long">' + escapeHTML(str) + "</p>";
+        return escapeHTML(str);
+      }
+
       function renderCandidateCard(c) {
         var nameHTML = c.website ? '<a href="' + escapeHTML(c.website) + '" target="_blank" rel="noopener">' + escapeHTML(c.name) + "</a>" : escapeHTML(c.name);
         var card = '<div class="anc-candidate-card' + (c.endorsed ? " endorsed" : "") + '">';
@@ -321,10 +369,27 @@
         if (!c.hasResponse) {
           card += '<p class="anc-no-response">No questionnaire response on file.</p>';
         } else {
+          var topics = {};
+          var spotlight = null;
           Object.keys(c.answers).forEach(function (q) {
             var val = c.answers[q];
-            var display = typeof val === "object" ? Object.keys(val).sort(function (a, b) { return val[a] - val[b]; }).map(function (o) { return o + " (rank " + val[o] + ")"; }).join(", ") : val;
-            card += '<div class="anc-answer-row"><div class="anc-answer-q">' + escapeHTML(q) + '</div><div class="anc-answer-a">' + escapeHTML(display) + "</div></div>";
+            var meta = questionMeta(q);
+            if (meta.topic === "spotlight") { spotlight = { label: meta.label, val: val }; return; }
+            (topics[meta.topic] = topics[meta.topic] || []).push({ label: meta.label, q: q, val: val });
+          });
+          if (spotlight) {
+            card += '<div class="anc-spotlight"><div class="anc-spotlight-label">' + escapeHTML(spotlight.label) + '</div>' +
+              '<p class="anc-answer-long">' + escapeHTML(spotlight.val) + "</p></div>";
+          }
+          var topicNames = TOPIC_ORDER.concat(Object.keys(topics).filter(function (t) { return TOPIC_ORDER.indexOf(t) === -1; }));
+          topicNames.forEach(function (topicName) {
+            var items = topics[topicName];
+            if (!items || !items.length) return;
+            card += '<details class="anc-topic"><summary>' + escapeHTML(topicName) + ' <span class="anc-topic-count">(' + items.length + ")</span></summary>";
+            items.forEach(function (item) {
+              card += '<div class="anc-answer-row"><div class="anc-answer-q">' + escapeHTML(item.label) + '</div><div class="anc-answer-a">' + formatAnswerHTML(item.q, item.val) + "</div></div>";
+            });
+            card += "</details>";
           });
         }
         card += "</div>";
@@ -399,15 +464,16 @@
         var html = '<h3 class="anc-charts-heading">How all candidates responded</h3>' +
           '<p class="anc-charts-sub">Aggregated across all ' + responded.length + " candidates who submitted a questionnaire response, citywide.</p>";
         responseData.questions.forEach(function (q) {
+          var shortLabel = questionMeta(q.key).label;
           if (q.type === "openended") {
             var quotes = responded.map(function (c) { return c.answers[q.key]; }).filter(Boolean);
             if (!quotes.length) return;
             if (/biggest issue/i.test(q.key)) {
-              html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(q.key) + "</div>" +
+              html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(shortLabel) + "</div>" +
                 renderWordCloudHTML(buildWordCloud(quotes)) + "</div>";
               return;
             }
-            html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(q.key) + '</div><ul class="anc-quotes-list">' +
+            html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(shortLabel) + '</div><ul class="anc-quotes-list">' +
               quotes.slice(0, 8).map(function (qt) { return "<li>“" + escapeHTML(qt) + "”</li>"; }).join("") + "</ul></div>";
             return;
           }
@@ -438,7 +504,7 @@
             maxVal = Math.max.apply(null, entries.map(function (e) { return e.value; })) || 1;
           }
           if (!entries.length) return;
-          html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(q.key) + (isRanking ? " (average rank, lower = higher priority)" : "") + "</div>";
+          html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(shortLabel) + (isRanking ? " (average rank, lower = higher priority)" : "") + "</div>";
           entries.forEach(function (e) {
             var pct = isRanking ? Math.max(6, 100 - (e.value / maxVal) * 100) : Math.max(6, (e.value / maxVal) * 100);
             html += '<div class="anc-bar-row"><div class="anc-bar-label">' + escapeHTML(e.label) + '</div><div class="anc-bar-track"><div class="anc-bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div><div class="anc-bar-count">' + (isRanking ? e.value.toFixed(1) : e.value) + "</div></div>";
