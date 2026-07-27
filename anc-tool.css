@@ -160,24 +160,3 @@
 .anc-tool .anc-answer-row { margin: 8px 0; font-size: 14px; }
 .anc-tool .anc-answer-q { font-weight: 600; margin-bottom: 2px; color: var(--gg-black); }
 .anc-tool .anc-answer-a { color: #333; }
-
-.anc-tool .anc-charts-heading {
-  font-family: var(--gg-font-headline);
-  font-size: 26px; font-weight: 700; letter-spacing: .01em;
-  color: var(--gg-black);
-  margin: 30px 0 4px;
-}
-.anc-tool .anc-charts-sub { font-size: 14px; color: #555; margin: 0 0 18px; }
-.anc-tool .anc-chart-block { margin-bottom: 26px; }
-.anc-tool .anc-chart-question { font-family: var(--gg-font-headline); font-size: 17px; font-weight: 700; margin-bottom: 8px; color: var(--gg-black); }
-.anc-tool .anc-bar-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
-.anc-tool .anc-bar-label { width: 220px; flex-shrink: 0; text-align: right; color: var(--gg-black); }
-.anc-tool .anc-bar-track { flex: 1; background: var(--gg-light-gray-green); border-radius: 3px; height: 18px; position: relative; }
-.anc-tool .anc-bar-fill { background: var(--gg-green); height: 100%; border-radius: 3px; }
-.anc-tool .anc-bar-count { width: 34px; flex-shrink: 0; font-size: 12px; color: #555; }
-
-.anc-tool .anc-wordcloud { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding: 12px 4px 4px; }
-.anc-tool .anc-wordcloud-word { font-family: var(--gg-font-headline); font-weight: 700; letter-spacing: .01em; line-height: 1; white-space: nowrap; cursor: default; }
-
-.anc-tool .anc-quotes-list { list-style: none; margin: 0; padding: 0; }
-.anc-tool .anc-quotes-list li { font-size: 14px; margin-bottom: 6px; padding-left: 10px; border-left: 2px solid var(--gg-gray); }

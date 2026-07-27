@@ -200,7 +200,6 @@
   function init(rootEl) {
     var statusEl = rootEl.querySelector(".anc-status");
     var selectionEl = rootEl.querySelector(".anc-selection");
-    var chartsEl = rootEl.querySelector(".anc-charts");
     var smdSelect = rootEl.querySelector(".anc-smd-select");
     var searchInput = rootEl.querySelector(".anc-address-input");
     var searchBtn = rootEl.querySelector(".anc-address-btn");
@@ -395,126 +394,6 @@
         card += "</div>";
         return card;
       }
-
-      // --- Turn a batch of free-text answers into a frequency-sized word cloud. ---
-      // Deliberately simple word-frequency counting (no external NLP library): as more real
-      // responses come in, recurring themes (e.g. "speeding", "traffic") naturally surface as
-      // the largest words without needing a hand-maintained theme taxonomy.
-      var WORDCLOUD_STOPWORDS = {
-        "the": 1, "a": 1, "an": 1, "and": 1, "or": 1, "of": 1, "in": 1, "on": 1, "at": 1, "to": 1,
-        "is": 1, "are": 1, "was": 1, "were": 1, "be": 1, "being": 1, "been": 1, "for": 1, "with": 1,
-        "without": 1, "that": 1, "this": 1, "these": 1, "those": 1, "it": 1, "its": 1, "our": 1,
-        "we": 1, "i": 1, "my": 1, "me": 1, "you": 1, "your": 1, "they": 1, "them": 1, "their": 1,
-        "there": 1, "here": 1, "more": 1, "most": 1, "some": 1, "any": 1, "all": 1, "not": 1, "no": 1,
-        "so": 1, "as": 1, "if": 1, "than": 1, "then": 1, "also": 1, "just": 1, "really": 1, "very": 1,
-        "have": 1, "has": 1, "had": 1, "will": 1, "would": 1, "should": 1, "could": 1, "can": 1,
-        "do": 1, "does": 1, "did": 1, "feel": 1, "think": 1, "biggest": 1, "issue": 1, "issues": 1,
-        "neighborhood": 1, "neighborhoods": 1, "about": 1, "into": 1, "from": 1, "by": 1, "up": 1,
-        "out": 1, "get": 1, "getting": 1, "much": 1, "many": 1, "lot": 1, "lack": 1
-      };
-      function stem(word) {
-        if (word.length > 5 && word.slice(-3) === "ing") return word.slice(0, -3);
-        if (word.length > 5 && word.slice(-3) === "ies") return word.slice(0, -3) + "y";
-        if (word.length > 5 && word.slice(-2) === "ed" && word.slice(-3) !== "eed") return word.slice(0, -2);
-        if (word.length > 4 && word.slice(-1) === "s" && word.slice(-2) !== "ss") return word.slice(0, -1);
-        return word;
-      }
-      function buildWordCloud(texts) {
-        var counts = {};
-        var displayForm = {};
-        texts.forEach(function (text) {
-          norm(text).toLowerCase().split(/[^a-z']+/).forEach(function (raw) {
-            if (!raw || raw.length < 3 || WORDCLOUD_STOPWORDS[raw]) return;
-            var stemmed = stem(raw);
-            if (WORDCLOUD_STOPWORDS[stemmed]) return;
-            counts[stemmed] = (counts[stemmed] || 0) + 1;
-            displayForm[stemmed] = displayForm[stemmed] || raw;
-          });
-        });
-        var entries = Object.keys(counts).map(function (k) { return { word: displayForm[k], count: counts[k] }; });
-        entries.sort(function (a, b) { return b.count - a.count; });
-        return entries.slice(0, 40);
-      }
-      function renderWordCloudHTML(entries) {
-        if (!entries.length) return '<p class="anc-no-response">No responses yet for this question.</p>';
-        var counts = entries.map(function (e) { return e.count; });
-        var minCount = Math.min.apply(null, counts), maxCount = Math.max.apply(null, counts);
-        var minFont = 14, maxFont = 42;
-        var palette = ["#0f9535", "#0b7229", "#333333", "#9db2a3"];
-        // Shuffle for an organic cloud layout, independent of frequency order.
-        var shuffled = entries.slice();
-        for (var i = shuffled.length - 1; i > 0; i--) {
-          var j = Math.floor(Math.random() * (i + 1));
-          var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
-        }
-        var html = '<div class="anc-wordcloud">';
-        shuffled.forEach(function (e, idx) {
-          var size = maxCount === minCount ? (minFont + maxFont) / 2 :
-            minFont + (e.count - minCount) / (maxCount - minCount) * (maxFont - minFont);
-          var color = palette[idx % palette.length];
-          html += '<span class="anc-wordcloud-word" style="font-size:' + size.toFixed(0) + 'px;color:' + color +
-            '" title="' + e.count + (e.count === 1 ? " mention" : " mentions") + '">' + escapeHTML(e.word) + "</span>";
-        });
-        html += "</div>";
-        return html;
-      }
-
-      function renderCitywideCharts() {
-        var responded = candidates.filter(function (c) { return c.hasResponse; });
-        var html = '<h3 class="anc-charts-heading">How all candidates responded</h3>' +
-          '<p class="anc-charts-sub">Aggregated across all ' + responded.length + " candidates who submitted a questionnaire response, citywide.</p>";
-        responseData.questions.forEach(function (q) {
-          var shortLabel = questionMeta(q.key).label;
-          if (q.type === "openended") {
-            var quotes = responded.map(function (c) { return c.answers[q.key]; }).filter(Boolean);
-            if (!quotes.length) return;
-            if (/biggest issue/i.test(q.key)) {
-              html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(shortLabel) + "</div>" +
-                renderWordCloudHTML(buildWordCloud(quotes)) + "</div>";
-              return;
-            }
-            html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(shortLabel) + '</div><ul class="anc-quotes-list">' +
-              quotes.slice(0, 8).map(function (qt) { return "<li>“" + escapeHTML(qt) + "”</li>"; }).join("") + "</ul></div>";
-            return;
-          }
-          var counts = {};
-          var isRanking = q.type === "ranking";
-          responded.forEach(function (c) {
-            var val = c.answers[q.key];
-            if (!val) return;
-            if (isRanking) {
-              Object.keys(val).forEach(function (opt) {
-                counts[opt] = counts[opt] || { sum: 0, n: 0 };
-                counts[opt].sum += Number(val[opt]) || 0;
-                counts[opt].n++;
-              });
-            } else {
-              counts[val] = (counts[val] || 0) + 1;
-            }
-          });
-          var entries;
-          var maxVal;
-          if (isRanking) {
-            entries = Object.keys(counts).map(function (opt) { return { label: opt, value: counts[opt].sum / counts[opt].n }; });
-            entries.sort(function (a, b) { return a.value - b.value; });
-            maxVal = Math.max.apply(null, entries.map(function (e) { return e.value; })) || 1;
-          } else {
-            entries = Object.keys(counts).map(function (opt) { return { label: opt, value: counts[opt] }; });
-            entries.sort(function (a, b) { return b.value - a.value; });
-            maxVal = Math.max.apply(null, entries.map(function (e) { return e.value; })) || 1;
-          }
-          if (!entries.length) return;
-          html += '<div class="anc-chart-block"><div class="anc-chart-question">' + escapeHTML(shortLabel) + (isRanking ? " (average rank, lower = higher priority)" : "") + "</div>";
-          entries.forEach(function (e) {
-            var pct = isRanking ? Math.max(6, 100 - (e.value / maxVal) * 100) : Math.max(6, (e.value / maxVal) * 100);
-            html += '<div class="anc-bar-row"><div class="anc-bar-label">' + escapeHTML(e.label) + '</div><div class="anc-bar-track"><div class="anc-bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div><div class="anc-bar-count">' + (isRanking ? e.value.toFixed(1) : e.value) + "</div></div>";
-          });
-          html += "</div>";
-        });
-        chartsEl.innerHTML = html;
-      }
-
-      renderCitywideCharts();
 
       smdSelect.addEventListener("change", function () { if (smdSelect.value) selectSMD(smdSelect.value); });
 
