@@ -95,9 +95,28 @@
   background: var(--gg-light-gray-green);
 }
 .anc-tool .anc-candidate-card.endorsed { border-color: var(--gg-green); background: var(--gg-light-green); }
-.anc-tool .anc-candidate-name { font-family: var(--gg-font-headline); font-size: 20px; font-weight: 700; margin: 0 0 2px; }
-.anc-tool .anc-candidate-name a { color: var(--gg-green-dark); text-decoration: none; }
-.anc-tool .anc-candidate-name a:hover { text-decoration: underline; }
+.anc-tool .anc-candidate-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 2px; }
+.anc-tool .anc-avatar {
+  flex-shrink: 0;
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: var(--gg-gray-green);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--gg-font-headline);
+  font-size: 17px; font-weight: 700;
+  letter-spacing: .02em;
+}
+.anc-tool .anc-candidate-headtext { flex: 1; min-width: 0; }
+.anc-tool .anc-candidate-name { font-family: var(--gg-font-headline); font-size: 20px; font-weight: 700; margin: 0 0 2px; color: var(--gg-black); }
+.anc-tool .anc-incumbent-badge {
+  font-family: var(--gg-font-body); font-weight: 700; font-size: 11px; letter-spacing: .03em; text-transform: uppercase;
+  background: var(--gg-light-gray-green); border: 1px solid var(--gg-gray-green); color: var(--gg-black);
+  border-radius: 999px; padding: 2px 8px; vertical-align: middle;
+}
+.anc-tool .anc-candidate-links { font-size: 13px; color: #555; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.anc-tool .anc-candidate-links a { color: var(--gg-green-dark); }
+.anc-tool .anc-candidate-social a { color: var(--gg-green-dark); }
 .anc-tool .anc-writein-tag { font-family: var(--gg-font-body); font-weight: 400; font-size: 13px; color: #777; }
 
 .anc-tool .anc-endorsed-ribbon {

@@ -127,11 +127,18 @@
     var smdIdx = header.indexOf("smd");
     var nameIdx = header.indexOf("candidate name");
     var siteIdx = header.indexOf("website");
+    var socialIdx = header.indexOf("social");
+    var incumbentIdx = header.indexOf("incumbent");
     var list = [];
     for (var i = 1; i < rows.length; i++) {
       var row = rows[i];
       if (!row || !norm(row[nameIdx])) continue;
-      list.push({ smd: norm(row[smdIdx]), name: norm(row[nameIdx]), website: siteIdx >= 0 ? norm(row[siteIdx]) : "" });
+      list.push({
+        smd: norm(row[smdIdx]), name: norm(row[nameIdx]),
+        website: siteIdx >= 0 ? norm(row[siteIdx]) : "",
+        social: socialIdx >= 0 ? norm(row[socialIdx]) : "",
+        incumbent: incumbentIdx >= 0 && /^(yes|y|true)$/i.test(norm(row[incumbentIdx]))
+      });
     }
     return list;
   }
@@ -158,7 +165,7 @@
       var resp = responseData.byKey[k];
       var end = endorsementMap[k];
       return {
-        smd: c.smd, anc: ancOf(c.smd), name: c.name, website: c.website,
+        smd: c.smd, anc: ancOf(c.smd), name: c.name, website: c.website, social: c.social, incumbent: c.incumbent,
         hasResponse: !!resp, answers: resp ? resp.answers : {},
         endorsed: !!end, quote: end ? end.quote : "", writeupLink: end ? end.link : ""
       };
@@ -314,27 +321,27 @@
       // is silently dropped if the questionnaire changes next cycle.
       var QUESTION_META = [
         { match: /biggest issue/i, topic: "spotlight", label: "Biggest issue in the neighborhood" },
-        { match: /where in your advisory neighborhood commission.*density/i, topic: "Housing & Development", label: "Where density should increase" },
-        { match: /i consider affordable housing/i, topic: "Housing & Development", label: "What counts as \u201caffordable housing\u201d" },
-        { match: /i consider market-rate housing/i, topic: "Housing & Development", label: "What counts as \u201cmarket-rate housing\u201d" },
-        { match: /inclusionary zoning law/i, topic: "Housing & Development", label: "Response to pushback on an IZ project" },
-        { match: /planned unit developments/i, topic: "Housing & Development", label: "PUD community-benefit priorities (ranked)" },
-        { match: /check any of the below combinations.*social housing/i, topic: "Housing & Development", label: "What counts as \u201csocial housing\u201d" },
-        { match: /should apartments be legal/i, topic: "Housing & Development", label: "Apartments legal District-wide?" },
-        { match: /which statement do you agree with most/i, topic: "Housing & Development", label: "Where new housing should go" },
-        { match: /historic districts/i, topic: "Housing & Development", label: "Views on historic districts" },
-        { match: /rewrite of its comprehensive plan/i, topic: "Housing & Development", label: "Comp Plan rewrite top priority" },
-        { match: /my anc, not just my smd, has/i, topic: "Housing & Development", label: "Bars & restaurants in the ANC" },
-        { match: /not enough cars, enough cars, or too many cars/i, topic: "Transportation & Streets", label: "Enough cars in DC?" },
-        { match: /sustainable d\.c\. 2\.0/i, topic: "Transportation & Streets", label: "Reduce car trips as a policy goal?" },
-        { match: /incentives for people to drive less/i, topic: "Transportation & Streets", label: "Traffic-safety policy priorities (ranked)" },
-        { match: /the above question asks about systemic policies/i, topic: "Transportation & Streets", label: "Local street-safety initiatives (ranked)" },
-        { match: /on-street parking occurs in public space/i, topic: "Transportation & Streets", label: "Reasonable street-parking availability" },
-        { match: /carbon-free by 2050/i, topic: "Transportation & Streets", label: "A car trip they'd switch" },
+        { match: /where in your advisory neighborhood commission.*density/i, topic: "Land Use", label: "Where density should increase" },
+        { match: /i consider affordable housing/i, topic: "Land Use", label: "What counts as \u201caffordable housing\u201d" },
+        { match: /i consider market-rate housing/i, topic: "Land Use", label: "What counts as \u201cmarket-rate housing\u201d" },
+        { match: /inclusionary zoning law/i, topic: "Land Use", label: "Response to pushback on an IZ project" },
+        { match: /planned unit developments/i, topic: "Land Use", label: "PUD community-benefit priorities (ranked)" },
+        { match: /check any of the below combinations.*social housing/i, topic: "Land Use", label: "What counts as \u201csocial housing\u201d" },
+        { match: /should apartments be legal/i, topic: "Land Use", label: "Apartments legal District-wide?" },
+        { match: /which statement do you agree with most/i, topic: "Land Use", label: "Where new housing should go" },
+        { match: /historic districts/i, topic: "Land Use", label: "Views on historic districts" },
+        { match: /rewrite of its comprehensive plan/i, topic: "Land Use", label: "Comp Plan rewrite top priority" },
+        { match: /my anc, not just my smd, has/i, topic: "Land Use", label: "Bars & restaurants in the ANC" },
+        { match: /not enough cars, enough cars, or too many cars/i, topic: "Transportation", label: "Enough cars in DC?" },
+        { match: /sustainable d\.c\. 2\.0/i, topic: "Transportation", label: "Reduce car trips as a policy goal?" },
+        { match: /incentives for people to drive less/i, topic: "Transportation", label: "Traffic-safety policy priorities (ranked)" },
+        { match: /the above question asks about systemic policies/i, topic: "Transportation", label: "Local street-safety initiatives (ranked)" },
+        { match: /on-street parking occurs in public space/i, topic: "Transportation", label: "Reasonable street-parking availability" },
+        { match: /carbon-free by 2050/i, topic: "Transportation", label: "A car trip they'd switch" },
         { match: /anc commissioners represent about 2,000/i, topic: "Governance & Representation", label: "How they'd represent all constituents" },
         { match: /why do you think you are the right person/i, topic: "Governance & Representation", label: "Why they're the right person" }
       ];
-      var TOPIC_ORDER = ["Housing & Development", "Transportation & Streets", "Governance & Representation"];
+      var TOPIC_ORDER = ["Land Use", "Transportation", "Governance & Representation"];
       function questionMeta(q) {
         for (var i = 0; i < QUESTION_META.length; i++) {
           if (QUESTION_META[i].match.test(q)) return QUESTION_META[i];
@@ -356,10 +363,37 @@
         return escapeHTML(str);
       }
 
+      function initials(name) {
+        var words = norm(name).split(/\s+/).filter(Boolean);
+        if (!words.length) return "?";
+        var first = words[0].charAt(0);
+        var last = words.length > 1 ? words[words.length - 1].charAt(0) : "";
+        return (first + last).toUpperCase();
+      }
+
+      // Auto-link any http(s) URL inside an otherwise free-text field (campaign social
+      // media answers are inconsistent free text: handles, URLs, mixed platforms).
+      function autoLinkText(str) {
+        var escaped = escapeHTML(str);
+        return escaped.replace(/https?:\/\/[^\s,;]+/g, function (url) {
+          return '<a href="' + url + '" target="_blank" rel="noopener">' + url + "</a>";
+        });
+      }
+
       function renderCandidateCard(c) {
-        var nameHTML = c.website ? '<a href="' + escapeHTML(c.website) + '" target="_blank" rel="noopener">' + escapeHTML(c.name) + "</a>" : escapeHTML(c.name);
         var card = '<div class="anc-candidate-card' + (c.endorsed ? " endorsed" : "") + '">';
-        card += '<p class="anc-candidate-name">' + nameHTML + "</p>";
+        card += '<div class="anc-candidate-header">';
+        card += '<div class="anc-avatar" aria-hidden="true">' + escapeHTML(initials(c.name)) + "</div>";
+        card += '<div class="anc-candidate-headtext">';
+        card += '<p class="anc-candidate-name">' + escapeHTML(c.name) + (c.incumbent ? ' <span class="anc-incumbent-badge">Incumbent</span>' : "") + "</p>";
+        if (c.website || c.social) {
+          card += '<div class="anc-candidate-links">';
+          if (c.website) card += '<a href="' + escapeHTML(c.website) + '" target="_blank" rel="noopener">Campaign site</a>';
+          if (c.social) card += '<span class="anc-candidate-social">' + autoLinkText(c.social) + "</span>";
+          card += "</div>";
+        }
+        card += "</div>"; // .anc-candidate-headtext
+        card += "</div>"; // .anc-candidate-header
         if (c.endorsed) {
           card += '<div class="anc-endorsed-ribbon">GGWash endorsed</div>';
           if (c.quote) card += '<p class="anc-pull-quote">“' + escapeHTML(c.quote) + '”</p>';
