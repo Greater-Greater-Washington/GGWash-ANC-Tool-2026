@@ -128,7 +128,6 @@
     var nameIdx = header.indexOf("candidate name");
     var siteIdx = header.indexOf("website");
     var socialIdx = header.indexOf("social");
-    var incumbentIdx = header.indexOf("incumbent");
     var list = [];
     for (var i = 1; i < rows.length; i++) {
       var row = rows[i];
@@ -136,8 +135,7 @@
       list.push({
         smd: norm(row[smdIdx]), name: norm(row[nameIdx]),
         website: siteIdx >= 0 ? norm(row[siteIdx]) : "",
-        social: socialIdx >= 0 ? norm(row[socialIdx]) : "",
-        incumbent: incumbentIdx >= 0 && /^(yes|y|true)$/i.test(norm(row[incumbentIdx]))
+        social: socialIdx >= 0 ? norm(row[socialIdx]) : ""
       });
     }
     return list;
@@ -165,7 +163,7 @@
       var resp = responseData.byKey[k];
       var end = endorsementMap[k];
       return {
-        smd: c.smd, anc: ancOf(c.smd), name: c.name, website: c.website, social: c.social, incumbent: c.incumbent,
+        smd: c.smd, anc: ancOf(c.smd), name: c.name, website: c.website, social: c.social,
         hasResponse: !!resp, answers: resp ? resp.answers : {},
         endorsed: !!end, quote: end ? end.quote : "", writeupLink: end ? end.link : ""
       };
@@ -315,58 +313,74 @@
         selectionEl.innerHTML = html;
       }
 
-      // --- Map each (long, verbatim survey) question to a short display label + topic bucket. ---
-      // Hand-curated against the 2026 questionnaire's real question text; unmatched questions
-      // fall back to a truncated version of their own text under "Other" so nothing is silently
+      // --- Map each (long, verbatim survey) question to its full official wording + topic
+      // bucket + (for closed-ended questions) the complete ordered list of answer choices,
+      // sourced directly from GGWash's 2026 blank questionnaire template. Showing every choice
+      // (not just the one selected) lets readers see what a candidate didn't pick, too.
+      // Unmatched questions fall back to their own raw text under "Other" so nothing is silently
       // dropped if the questionnaire changes next cycle.
       var QUESTION_META = [
-        { match: /biggest issue/i, topic: "spotlight", label: "Biggest issue in the neighborhood" },
-        { match: /planned unit developments .allow developers/i, topic: "Land Use", label: "Negotiated PUD vs. by-right development" },
-        { match: /not enough homes, enough homes, or too many homes/i, topic: "Land Use", label: "Enough homes in the ANC?" },
-        { match: /which of the following statements most aligns with your beliefs/i, topic: "Land Use", label: "Character vs. more homes" },
-        { match: /i consider affordable housing/i, topic: "Land Use", label: "What counts as \u201caffordable housing\u201d" },
-        { match: /i consider market-rate housing/i, topic: "Land Use", label: "What counts as \u201cmarket-rate housing\u201d" },
-        { match: /distinction between affordable hou/i, topic: "Land Use", label: "Affordable vs. market-rate, in their words" },
-        { match: /check any of the below combinations.*social housing/i, topic: "Land Use", label: "What counts as \u201csocial housing\u201d" },
-        { match: /family-sized housing mean/i, topic: "Land Use", label: "What \u201cfamily-sized housing\u201d means to them" },
-        { match: /historic districts, enough historic districts/i, topic: "Land Use", label: "Enough historic districts?" },
-        { match: /which statement do you agree with most/i, topic: "Land Use", label: "Where new housing should go" },
-        { match: /should apartments.{0,20}sixplexes.{0,20}be legal/i, topic: "Land Use", label: "Sixplexes legal District-wide?" },
-        { match: /selected,? ?"no,?" explain why.*apartments/i, topic: "Land Use", label: "Why apartments shouldn't be legal everywhere" },
-        { match: /historic preservation laws be amended/i, topic: "Land Use", label: "Remove height/mass from Historic Preservation Review?" },
-        { match: /bowser failed to meet her 2019 target/i, topic: "Land Use", label: "15% affordable per planning area" },
-        { match: /janeese lewis george/i, topic: "Land Use", label: "Response to Janeese Lewis George's housing pledge" },
-        { match: /zoning commission a proposal/i, topic: "Land Use", label: "Extra ADU per lot in R/RF zones" },
-        { match: /no longer consider someone.s home .near transit/i, topic: "Transportation", label: "Definition of \u201cnear transit\u201d" },
-        { match: /not enough cars, enough cars, or too many cars/i, topic: "Transportation", label: "Enough cars in DC?" },
-        { match: /how many vehicles.*family of four/i, topic: "Transportation", label: "Vehicles a family of four needs" },
-        { match: /not enough parking, enough parking, or too much parking/i, topic: "Transportation", label: "Enough parking in the ANC?" },
-        { match: /too few bars and restaurants/i, topic: "Land Use", label: "Enough bars & restaurants?" },
-        { match: /dedicated bus lanes/i, topic: "Transportation", label: "Remove parking/lanes for bus lanes?" },
-        { match: /protected bike lanes/i, topic: "Transportation", label: "Remove parking/lanes for bike lanes?" },
-        { match: /road pricing/i, topic: "Transportation", label: "Support road/congestion pricing?" },
-        { match: /national week without driving/i, topic: "Transportation", label: "Participate in Week Without Driving?" },
-        { match: /inducing residents and visitors to drive less/i, topic: "Transportation", label: "Reduce driving as explicit policy goal?" },
-        { match: /carbon-free by 2045/i, topic: "Transportation", label: "A car trip they'd switch" },
-        { match: /anc commissioners represent about 2,000/i, topic: "Governance & Representation", label: "How they'd represent all constituents" },
-        { match: /why do you think you are the right person/i, topic: "Governance & Representation", label: "Why they're the right person" },
-        { match: /anything else you.d like ggwash to take into consideration/i, topic: "Governance & Representation", label: "Anything else for GGWash to consider" }
+        { match: new RegExp("not enough homes, enough homes, or too many homes", "i"), topic: "Land Use/Housing", label: "Do you think there are not enough homes, enough homes, or too many homes in your ANC?", options: ["Not enough homes", "Enough homes", "Too many homes"], spotlight: false },
+        { match: new RegExp("which of the following statements most aligns with your beliefs", "i"), topic: "Land Use/Housing", label: "Which of the following statements most aligns with your beliefs?", options: ["It's more important to preserve the character of our neighborhoods, and the District’s land-use regulations should reflect that.", "It's more important to enable more homes, and more types of homes, in more of our neighborhoods, even if that results in pushback for “changing a neighborhood’s character.”"], spotlight: false },
+        { match: new RegExp("i consider affordable housing to be", "i"), topic: "Land Use/Housing", label: "I consider affordable housing to be (check all that, in your opinion, apply):", options: ["Means-tested or income-restricted", "Built by the government", "Cheap", "Subsidized", "Rent-controlled", "Costing no more than 30 percent of one’s household income"], spotlight: false },
+        { match: new RegExp("i consider market-rate housing to be", "i"), topic: "Land Use/Housing", label: "I consider market-rate housing to be (check all that, in your opinion, apply):", options: ["Not means-tested or income-restricted", "Built by private developers", "Expensive", "Unsubsidized", "Not rent-controlled", "Costing more than 30 percent of one’s household income"], spotlight: false },
+        { match: new RegExp("distinction between affordable hou", "i"), topic: "Land Use/Housing", label: "If you’d like, elaborate on what you believe to be the distinction between affordable housing and market-rate housing. (Max. 1,500 characters.)", options: null, spotlight: false },
+        { match: new RegExp("check any of the below combinations", "i"), topic: "Land Use/Housing", label: "Check any of the below combinations of features that you would consider social housing.", options: ["District-owned housing on District-owned land, built by a District agency and managed by a District agency", "District-owned housing on District-owned land, built by a District agency and managed by a private property-management company", "District-owned housing on District-owned land, built by a private construction company and managed by a District agency", "District-owned housing on District-owned land, built by a private construction company and managed by a private property-management company"], spotlight: false },
+        { match: new RegExp("family-sized housing mean", "i"), topic: "Land Use/Housing", label: "What does family-sized housing mean to you? (Max. 1,500 characters.)", options: null, spotlight: false },
+        { match: new RegExp("historic districts, enough historic districts", "i"), topic: "Land Use/Housing", label: "Are there not enough historic districts, enough historic districts, or too many historic districts in your ANC?", options: ["Not enough historic districts", "Enough historic districts", "Too many historic districts"], spotlight: false },
+        { match: new RegExp("inducing residents and visitors to drive less", "i"), topic: "Transportation", label: "Do you think inducing residents and visitors to drive less should be an explicit policy goal of the District?", options: ["Yes, inducing residents and visitors to drive less should be an explicit policy goal of the District.", "No, inducing residents and visitors to drive less should not be an explicit policy goal of the District."], spotlight: false },
+        { match: new RegExp("not enough cars, enough cars, or too many cars", "i"), topic: "Transportation", label: "Do you think there are not enough cars, enough cars, or too many cars in the District?", options: ["Not enough cars", "Enough cars", "Too many cars"], spotlight: false },
+        { match: new RegExp("how many vehicles.*family of four", "i"), topic: "Transportation", label: "How many vehicles do you think a family of four needs to get by in the District?", options: ["Zero", "One", "Two", "Three or more"], spotlight: false },
+        { match: new RegExp("not enough parking, enough parking, or too much parking", "i"), topic: "Transportation", label: "Do you think there is not enough parking, enough parking, or too much parking in your ANC?", options: ["Not enough parking", "Enough parking", "Too much parking"], spotlight: false },
+        { match: new RegExp("too few bars and restaurants", "i"), topic: "Land Use/Housing", label: "Do you think there are too few bars and restaurants, enough bars and restaurants, or too many bars and restaurants in your ANC?", options: ["Too few bars and restaurants", "Enough bars and restaurants", "Too many bars and restaurants"], spotlight: false },
+        { match: new RegExp("^which statement do you agree with most", "i"), topic: "Land Use/Housing", label: "Which statement do you agree with most?", options: ["Little or no new housing should be built anywhere in the District.", "New housing should be built almost exclusively near transit or on major corridors. Adding new housing is important, but so is protecting neighborhoods from change. Limiting denser development to land near transit or on major corridors is a reasonable compromise.", "New housing of all types should be built throughout all neighborhoods. Building more densely near transit is important, but people also deserve the option to live in rowhomes and small apartment buildings, even if those homes are not within a set proximity to a bus stop or train station."], spotlight: false },
+        { match: new RegExp("should apartments.{0,20}sixplexes.{0,20}be legal", "i"), topic: "Land Use/Housing", label: "Should apartments—for example, sixplexes—be legal in all parts of all the District's neighborhoods?", options: ["Yes, apartments should be legal in all parts of all the District's neighborhoods.", "Yes, apartments should be legal in all parts of all the District’s neighborhoods, and I would introduce a resolution supporting the legalization of sixplexes in the Comprehensive Plan rewrite.", "No, apartments should not be legal in all parts of all the District's neighborhoods.", "No, apartments should not be legal in all parts of all the District’s neighborhoods, and I would oppose a resolution in support of such a policy."], spotlight: false },
+        { match: new RegExp("selected,? ?\"no,?\" explain why.*apartments", "i"), topic: "Land Use/Housing", label: "If you selected, \"No,\" explain why you think apartments shouldn't be legal in all parts of all the District’s neighborhoods. Otherwise, write N/A. (Max. 3,000 characters.)", options: null, spotlight: false },
+        { match: new RegExp("historic preservation laws be amended", "i"), topic: "Land Use/Housing", label: "Should the District’s historic preservation laws be amended to remove height and mass from the purview of the Historic Preservation Review Board?", options: ["Yes, height and mass should be removed from the purview of the Historic Preservation Review Board.", "Yes, height and mass should be removed from the purview of the Historic Preservation Review Board, and I would introduce a resolution supporting such a policy.", "No, height and mass should not be removed from the purview of the Historic Preservation Review Board.", "No, height and mass should not be removed from the purview of the Historic Preservation Review Board, and I would oppose a resolution in support of such a policy."], spotlight: false },
+        { match: new RegExp("bowser failed to meet her 2019 target", "i"), topic: "Land Use/Housing", label: "Mayor Muriel Bowser failed to meet her 2019 target of achieving “an equitable distribution of no less than 15 percent affordable housing in each planning area by 2050.\" Do you agree that 15 percent of all homes in a planning area should be affordable?", options: ["I agree that 15 percent of all homes in a planning area should be affordable.", "I agree that 15 percent of all homes in a planning area should be affordable, and would introduce a resolution in support of such a policy.", "I do not agree that 15 percent of all homes in a planning area should be affordable.", "I do not agree that 15 percent of all homes in a planning area should be affordable, and would introduce a resolution in opposition to such a policy."], spotlight: false },
+        { match: new RegExp("janeese lewis george", "i"), topic: "Land Use/Housing", label: "Janeese Lewis George, the Democratic nominee for mayor of Washington, D.C., committed to a goal of building 72,000 new homes in five years. That’s equal to about 210 units per single-member district, or 1,565 units per ANC. Hypothetically, where do you think 210 new homes should be built in your SMD or ANC? If you do not think new housing should be built in your SMD or ANC, please write, \"I do not think new housing should be built in my SMD or ANC.” (Max. 3,000 characters.)", options: null, spotlight: false },
+        { match: new RegExp("planned unit developments .allow developers", "i"), topic: "Land Use/Housing", label: "In the District, planned unit developments “allow developers flexibility to meet objectives such as use, density, site planning, and design” by incorporating “public benefits that exceed those that could have been achieved under the general provisions of the Zoning Regulations.” Not all commissioners will work on a PUD but, if one is proposed, ANCs may be able to negotiate which benefits developers might provide in exchange for greater height and density. Developers rarely propose PUDs because of the time and complexity that the Zoning Commission has added to approvals. Which of the following statements most aligns with your preferences?", options: ["I would prefer to negotiate a PUD. The delay in the production of new housing is worth the potential for—if not the guarantee of—benefits such as improvements to streets and sidewalks or more income-restricted, subsidized units than are required by District law.", "I would prefer that development in my ANC be by-right. Knowing that what is zoned is all that is possible to build creates predictability for residents and housing providers, which is worth forgoing a negotiation for possible benefits."], spotlight: false },
+        { match: new RegExp("zoning commission a proposal", "i"), topic: "Land Use/Housing", label: "Greater Greater Washington is considering submitting to the Zoning Commission a proposal to enable a variety of smaller-scale housing types where they are not currently possible to build. Our proposal would allow one additional home per lot in R and RF zones. It would also decrease minimum lot area and width, and increase minimum lot capacity. You can see what parts of the District those zones cover on our indicator map. Would you support a proposal that enabled the following?\n\nIncreasing the homes allowed in R-1A zones from one to two per lot\nIncreasing the homes allowed in R-1B, R-2, and R-3 zones from one to three per lot\nIncreasing the homes allowed in RF-1 zones from two to three per lot\nIncreasing the homes allowed in RF-4 zones from three to four per lot\nIncreasing the homes allowed in RF-5 zones from four to five per lot", options: ["I would support a zoning text amendment enabling an additional home per lot in R and RF zones.", "I would support enabling an additional home per lot in R and RF zones, and would introduce a resolution in support of such a zoning text amendment.", "I would not support enabling an additional home per lot in R and RF zones.", "I would not support enabling an additional home per lot in R and RF zones, and would introduce a resolution in opposition to such a zoning text amendment."], spotlight: false },
+        { match: new RegExp("no longer consider someone.s home .near transit", "i"), topic: "Transportation", label: "At what point do you no longer consider someone’s home “near transit”?", options: ["If their home is further than a five-minute walk to a bus stop or train station.", "If their home is further than a 10-minute walk to a bus stop or train station.", "If their home is further than a 15-minute walk to a bus stop or train station.", "If their home is further than a 20-minute walk to a bus stop or train station.", "If their home is further than a 30-minute walk or longer to a bus stop or train station."], spotlight: false },
+        { match: new RegExp("dedicated bus lanes", "i"), topic: "Transportation", label: "Do you support removing parking and travel lanes to build dedicated bus lanes? See how many people in your ANC and SMD live near frequent transit on our indicator map.", options: ["Yes, I support removing parking and travel lanes to build dedicated bus lanes.", "Yes, I support removing parking and travel lanes to build dedicated bus lanes, and would introduce a resolution in support of doing so in my ANC.", "No, I do not support removing parking and travel lanes to build dedicated bus lanes.", "No, I do not support removing parking and travel lanes to build dedicated bus lanes, and would introduce a resolution in opposition to doing so in my ANC."], spotlight: false },
+        { match: new RegExp("protected bike lanes", "i"), topic: "Transportation", label: "Do you support removing parking and travel lanes to build protected bike lanes? See how many people in your ANC and SMD live near protected bike lanes on our indicator map.", options: ["Yes, I support removing parking and travel lanes to build protected bike lanes.", "Yes, I support removing parking and travel lanes to build protected bike lanes, and would introduce a resolution in support of doing so in my ANC.", "No, I do not support removing parking and travel lanes to build protected bike lanes.", "No, I do not support removing parking and travel lanes to build protected bike lanes, and would introduce a resolution in opposition to doing so in my ANC."], spotlight: false },
+        { match: new RegExp("road pricing", "i"), topic: "Transportation", label: "Do you support the implementation of road pricing (also referred to as congestion pricing) in downtown Washington, D.C.? The “small study area” in the map below shows approximately where a road-pricing charge could apply.Since a $9 congestion toll was introduced in Manhattan in January 2025, it has generated $700 million in revenue for New York City. Broadway had its highest-grossing year on record, and air quality improved across all five boroughs. Traffic injuries dropped in the congestion relief zone. In 2024, there were 6,455 reported crashes and 3,117 injuries. By 2025, reported crashes had dropped 5 percent, to 6,137, and injuries dropped 3.6 percent, to 3,003. https://surveymonkey-assets.s3.amazonaws.com/survey/528100308/rte/0fbead89-6503-41b9-b75a-3df3cc86dddc.png", options: ["Yes, I support the implementation of road pricing.", "Yes, I support the implementation of road pricing, and would introduce a resolution in support of the District doing so.", "No, I do not support the implementation of road pricing.", "No, I do not support the implementation of road pricing, and would introduce a resolution in opposition to the District doing so."], spotlight: false },
+        { match: new RegExp("national week without driving", "i"), topic: "Transportation", label: "Will you participate in the yearly National Week Without Driving?", options: ["Yes, I will participate in the National Week Without Driving every fall.", "No, I will not participate in the National Week Without Driving every fall."], spotlight: false },
+        { match: new RegExp("carbon-free by 2045", "i"), topic: "Transportation", label: "The District's plan to be carbon-free by 2045 requires residents to reduce the trips they take by car. Please describe at least one trip you currently take by car (even if you, yourself, are not driving) that you can commit to taking on foot, by bus, by train, via a mobility device, or by bike instead. (Max. 1,500 characters.)", options: null, spotlight: false },
+        { match: new RegExp("biggest issue", "i"), topic: null, label: "What do you feel is the biggest issue in your neighborhood, and what is your position on it? Given the limited scope of commissioners’ authority, what would you most realistically do about that issue if elected? (Max. 1,500 characters each.)", options: null, spotlight: true },
+        { match: new RegExp("anc commissioners represent about 2,000", "i"), topic: "Other", label: "ANC commissioners represent about 2,000 constituents, on average. With the understanding that you are not going to hear from every single one of them during your term, and that those you do hear from may not represent a majority view of the 2,000 people you represent, describe how you plan to make decisions as an elected representative. (Max. 3,000 characters.)", options: null, spotlight: false },
+        { match: new RegExp("why do you think you are the right person", "i"), topic: "Other", label: "Why do you think you are the right person to serve as an ANC commissioner for your SMD? (Max. 1,500 characters.)", options: null, spotlight: false },
+        { match: new RegExp("anything else you.d like ggwash to take into consideration", "i"), topic: "Other", label: "Is there anything else you'd like GGWash to take into consideration about your positions on housing, affordable housing, transportation, and land use? (Max. 3,000 characters.)", options: null, spotlight: false }
       ];
-      var TOPIC_ORDER = ["Land Use", "Transportation", "Governance & Representation"];
+      var TOPIC_ORDER = ["Land Use/Housing", "Transportation", "Other"];
       function questionMeta(q) {
         for (var i = 0; i < QUESTION_META.length; i++) {
           if (QUESTION_META[i].match.test(q)) return QUESTION_META[i];
         }
-        return { topic: "Other", label: q.length > 90 ? q.slice(0, 87) + "\u2026" : q };
+        return { topic: "Other", label: q, options: null, spotlight: false };
       }
 
-      function formatAnswerHTML(questionKey, val) {
+      // Render every possible answer choice for a closed-ended question, marking which one(s)
+      // the candidate actually chose so readers can see the options they passed over too.
+      function renderOptionsHTML(options, rawVal) {
+        var chosen = String(rawVal).split(";").map(function (s) { return s.trim(); }).filter(Boolean);
+        var chosenNorm = chosen.map(function (s) { return s.toLowerCase(); });
+        return '<ul class="anc-option-list">' + options.map(function (opt) {
+          var isChosen = chosenNorm.indexOf(opt.toLowerCase()) !== -1;
+          return '<li class="anc-option' + (isChosen ? ' anc-option-chosen' : ' anc-option-unchosen') + '">' +
+            '<span class="anc-option-marker" aria-hidden="true">' + (isChosen ? "\u25CF" : "\u25CB") + '</span>' +
+            '<span class="anc-option-text">' + escapeHTML(opt) + "</span></li>";
+        }).join("") + "</ul>";
+      }
+
+      function formatAnswerHTML(meta, val) {
         if (val && typeof val === "object") {
           var items = Object.keys(val).sort(function (a, b) { return val[a] - val[b]; });
           return '<ol class="anc-rank-list">' + items.map(function (o) { return "<li>" + escapeHTML(o) + "</li>"; }).join("") + "</ol>";
         }
+        if (meta.options) return renderOptionsHTML(meta.options, val);
         var str = String(val);
-        if (/check (all|any)/i.test(questionKey)) {
+        if (/check (all|any)/i.test(meta.label) && str.indexOf(";") !== -1) {
           var tags = str.split(";").map(function (s) { return s.trim(); }).filter(Boolean);
           return '<div class="anc-tag-list">' + tags.map(function (t) { return '<span class="anc-tag">' + escapeHTML(t) + "</span>"; }).join("") + "</div>";
         }
@@ -396,7 +410,7 @@
         card += '<div class="anc-candidate-header">';
         card += '<div class="anc-avatar" aria-hidden="true">' + escapeHTML(initials(c.name)) + "</div>";
         card += '<div class="anc-candidate-headtext">';
-        card += '<p class="anc-candidate-name">' + escapeHTML(c.name) + (c.incumbent ? ' <span class="anc-incumbent-badge">Incumbent</span>' : "") + "</p>";
+        card += '<p class="anc-candidate-name">' + escapeHTML(c.name) + "</p>";
         if (c.website || c.social) {
           card += '<div class="anc-candidate-links">';
           if (c.website) card += '<a href="' + escapeHTML(c.website) + '" target="_blank" rel="noopener">Campaign site</a>';
@@ -418,8 +432,8 @@
           Object.keys(c.answers).forEach(function (q) {
             var val = c.answers[q];
             var meta = questionMeta(q);
-            if (meta.topic === "spotlight") { spotlight = { label: meta.label, val: val }; return; }
-            (topics[meta.topic] = topics[meta.topic] || []).push({ label: meta.label, q: q, val: val });
+            if (meta.spotlight) { spotlight = { label: meta.label, val: val }; return; }
+            (topics[meta.topic] = topics[meta.topic] || []).push({ label: meta.label, meta: meta, val: val });
           });
           if (spotlight) {
             card += '<div class="anc-spotlight"><div class="anc-spotlight-label">' + escapeHTML(spotlight.label) + '</div>' +
@@ -431,7 +445,7 @@
             if (!items || !items.length) return;
             card += '<details class="anc-topic"><summary>' + escapeHTML(topicName) + ' <span class="anc-topic-count">(' + items.length + ")</span></summary>";
             items.forEach(function (item) {
-              card += '<div class="anc-answer-row"><div class="anc-answer-q">' + escapeHTML(item.label) + '</div><div class="anc-answer-a">' + formatAnswerHTML(item.q, item.val) + "</div></div>";
+              card += '<div class="anc-answer-row"><div class="anc-answer-q">' + escapeHTML(item.label) + '</div><div class="anc-answer-a">' + formatAnswerHTML(item.meta, item.val) + "</div></div>";
             });
             card += "</details>";
           });
