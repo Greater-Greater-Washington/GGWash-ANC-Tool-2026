@@ -316,30 +316,41 @@
       }
 
       // --- Map each (long, verbatim survey) question to a short display label + topic bucket. ---
-      // Hand-curated against this specific 2024 questionnaire's real question text; unmatched
-      // questions fall back to a truncated version of their own text under "Other" so nothing
-      // is silently dropped if the questionnaire changes next cycle.
+      // Hand-curated against the 2026 questionnaire's real question text; unmatched questions
+      // fall back to a truncated version of their own text under "Other" so nothing is silently
+      // dropped if the questionnaire changes next cycle.
       var QUESTION_META = [
         { match: /biggest issue/i, topic: "spotlight", label: "Biggest issue in the neighborhood" },
-        { match: /where in your advisory neighborhood commission.*density/i, topic: "Land Use", label: "Where density should increase" },
+        { match: /planned unit developments .allow developers/i, topic: "Land Use", label: "Negotiated PUD vs. by-right development" },
+        { match: /not enough homes, enough homes, or too many homes/i, topic: "Land Use", label: "Enough homes in the ANC?" },
+        { match: /which of the following statements most aligns with your beliefs/i, topic: "Land Use", label: "Character vs. more homes" },
         { match: /i consider affordable housing/i, topic: "Land Use", label: "What counts as \u201caffordable housing\u201d" },
         { match: /i consider market-rate housing/i, topic: "Land Use", label: "What counts as \u201cmarket-rate housing\u201d" },
-        { match: /inclusionary zoning law/i, topic: "Land Use", label: "Response to pushback on an IZ project" },
-        { match: /planned unit developments/i, topic: "Land Use", label: "PUD community-benefit priorities (ranked)" },
+        { match: /distinction between affordable hou/i, topic: "Land Use", label: "Affordable vs. market-rate, in their words" },
         { match: /check any of the below combinations.*social housing/i, topic: "Land Use", label: "What counts as \u201csocial housing\u201d" },
-        { match: /should apartments be legal/i, topic: "Land Use", label: "Apartments legal District-wide?" },
+        { match: /family-sized housing mean/i, topic: "Land Use", label: "What \u201cfamily-sized housing\u201d means to them" },
+        { match: /historic districts, enough historic districts/i, topic: "Land Use", label: "Enough historic districts?" },
         { match: /which statement do you agree with most/i, topic: "Land Use", label: "Where new housing should go" },
-        { match: /historic districts/i, topic: "Land Use", label: "Views on historic districts" },
-        { match: /rewrite of its comprehensive plan/i, topic: "Land Use", label: "Comp Plan rewrite top priority" },
-        { match: /my anc, not just my smd, has/i, topic: "Land Use", label: "Bars & restaurants in the ANC" },
+        { match: /should apartments.{0,20}sixplexes.{0,20}be legal/i, topic: "Land Use", label: "Sixplexes legal District-wide?" },
+        { match: /selected,? ?"no,?" explain why.*apartments/i, topic: "Land Use", label: "Why apartments shouldn't be legal everywhere" },
+        { match: /historic preservation laws be amended/i, topic: "Land Use", label: "Remove height/mass from Historic Preservation Review?" },
+        { match: /bowser failed to meet her 2019 target/i, topic: "Land Use", label: "15% affordable per planning area" },
+        { match: /janeese lewis george/i, topic: "Land Use", label: "Response to Janeese Lewis George's housing pledge" },
+        { match: /zoning commission a proposal/i, topic: "Land Use", label: "Extra ADU per lot in R/RF zones" },
+        { match: /no longer consider someone.s home .near transit/i, topic: "Transportation", label: "Definition of \u201cnear transit\u201d" },
         { match: /not enough cars, enough cars, or too many cars/i, topic: "Transportation", label: "Enough cars in DC?" },
-        { match: /sustainable d\.c\. 2\.0/i, topic: "Transportation", label: "Reduce car trips as a policy goal?" },
-        { match: /incentives for people to drive less/i, topic: "Transportation", label: "Traffic-safety policy priorities (ranked)" },
-        { match: /the above question asks about systemic policies/i, topic: "Transportation", label: "Local street-safety initiatives (ranked)" },
-        { match: /on-street parking occurs in public space/i, topic: "Transportation", label: "Reasonable street-parking availability" },
-        { match: /carbon-free by 2050/i, topic: "Transportation", label: "A car trip they'd switch" },
+        { match: /how many vehicles.*family of four/i, topic: "Transportation", label: "Vehicles a family of four needs" },
+        { match: /not enough parking, enough parking, or too much parking/i, topic: "Transportation", label: "Enough parking in the ANC?" },
+        { match: /too few bars and restaurants/i, topic: "Land Use", label: "Enough bars & restaurants?" },
+        { match: /dedicated bus lanes/i, topic: "Transportation", label: "Remove parking/lanes for bus lanes?" },
+        { match: /protected bike lanes/i, topic: "Transportation", label: "Remove parking/lanes for bike lanes?" },
+        { match: /road pricing/i, topic: "Transportation", label: "Support road/congestion pricing?" },
+        { match: /national week without driving/i, topic: "Transportation", label: "Participate in Week Without Driving?" },
+        { match: /inducing residents and visitors to drive less/i, topic: "Transportation", label: "Reduce driving as explicit policy goal?" },
+        { match: /carbon-free by 2045/i, topic: "Transportation", label: "A car trip they'd switch" },
         { match: /anc commissioners represent about 2,000/i, topic: "Governance & Representation", label: "How they'd represent all constituents" },
-        { match: /why do you think you are the right person/i, topic: "Governance & Representation", label: "Why they're the right person" }
+        { match: /why do you think you are the right person/i, topic: "Governance & Representation", label: "Why they're the right person" },
+        { match: /anything else you.d like ggwash to take into consideration/i, topic: "Governance & Representation", label: "Anything else for GGWash to consider" }
       ];
       var TOPIC_ORDER = ["Land Use", "Transportation", "Governance & Representation"];
       function questionMeta(q) {
